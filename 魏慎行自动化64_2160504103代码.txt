@@ -1,0 +1,106 @@
+function f_pepper=pepper(f,p)
+pepper_ind = randperm((numel(f)),floor(p*numel(f)));
+f_pepper = f;  % tif1为uint8类型
+f_pepper(pepper_ind) = 0;
+f_pepper = im2uint8(f_pepper); 
+function f_salt=salt(f,p)
+salt_ind = randperm((numel(f)),floor(p*numel(f)));
+f_salt = f;  % tif1为uint8类型
+f_salt(salt_ind) = 255;
+f_salt = im2uint8(f_salt); 
+function g=motion(f,a,b,T)
+f=double(f);
+F=fft2(f);
+
+[row,column]=size(F);
+H=zeros(row,column);
+for u=1:row
+    for v=1:column
+        H(u,v)=(T/(pi*(u*a+v*b)))*sin(pi*(u*a+v*b))*exp(-(1i)*pi*(u*a+v*b));
+    end
+end
+G=H.*F;
+
+g=real(ifft2(G));
+g=im2uint8(mat2gray(g));
+
+
+function g=wiener(f,K,a,b,T)
+f=double(f);
+F=fft2(f);
+
+[row,column]=size(F);
+H=zeros(row,column);
+G=zeros(row,column);
+for u=1:row
+    for v=1:column
+        H(u,v)=(T/(pi*(u*a+v*b)))*sin(pi*(u*a+v*b))*exp(-(1i)*pi*(u*a+v*b));
+        G(u,v)=((1/H(u,v))*(abs(H(u,v)))^2/((abs(H(u,v)))^2+K))*F(u,v);
+    end
+end
+g=real(ifft2(G));
+g=im2uint8(mat2gray(g));
+
+function f=charmean(g_,p,Q)
+g_=double(g_);
+[row,column]=size(g_);
+ex=floor(p/2);
+g=zeros(row+2*ex,column+2*ex);
+g((ex+1:(ex+row)),(ex+1:(ex+column)))=g_;
+g1=g;
+for i=(ex+1):(ex+row)
+    for j=(ex+1):(ex+column)
+        a=sum(sum(g1((i-ex:i+ex),(j-ex:j+ex)).^(Q+1))');
+        b=sum(sum(g1((i-ex:i+ex),(j-ex:j+ex)).^Q)');
+        g(i,j)=a/b;
+    end
+end
+f=g((ex+1:(ex+row)),(ex+1:(ex+column)));
+f=im2uint8(mat2gray(f));
+        
+lena=imread('lena.bmp');
+lena1=imnoise(lena,'gaussian',0,0.1);
+% imshow(lena1)
+% f=medfilt2(lena1,[7,7],'symmetric');
+% w=fspecial('average',[7,7]);
+% f=imfilter(lena1,w);
+% figure,imshow(f)
+
+% lena2=salt(lena,0.1);
+% figure,imshow(lena2)
+% lena3=pepper(lena,0.1);
+% figure,imshow(lena3)
+% f=charmean(lena3,3,1.5);
+% figure,imshow(f)
+% f1=charmean(lena2,3,-1.5);
+% figure,imshow(f1)
+
+lena4=motion(lena,0.1,0.1,1);
+figure,imshow(lena4)
+lena4=imnoise(lena4,'gaussian',0,0.01);
+% subplot(2,1,1)
+figure,imshow(lena4)
+k=0.001;
+t=0;
+min=inf;
+% for i=1:50
+%     g=wiener(lena4,k,0.1,0.1,1);  
+%     t=(g-lena).^2;
+%     t=sum(sum(t));
+%     if t<min
+%         min=t;
+%         a=k;
+%     end
+%     k=k+0.001;
+% end
+% g=deconvreg1(lena4,0.5,0.1,0.1,1);
+% subplot(2,1,2)
+% h=fspecial('motion',50,45);
+% lena4=imfilter(lena,h,'circular','conv');
+% %  lena4=imnoise(lena4,'gaussian',0,0.01);
+% V=0.0001;
+% NP=V*prod(size(lena));
+% g=deconvreg(lena4,h,NP);
+% imshow(lena4);
+g=wiener(lena4,0.016,0.1,0.1,1)
+figure, imshow(g)
